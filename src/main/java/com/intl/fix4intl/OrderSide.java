@@ -30,7 +30,7 @@ public class OrderSide {
 
     private String name;
 
-    private OrderSide(String name) {
+    public OrderSide(String name) {
         this.name = name;
         synchronized(OrderSide.class) {
             known.put(name, this);

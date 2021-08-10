@@ -16,6 +16,8 @@ import com.intl.fix4intl.OrderSide;
 import com.intl.fix4intl.OrderTIF;
 import com.intl.fix4intl.OrderTableModel;
 import com.intl.fix4intl.OrderType;
+import com.intl.fix4intl.Socket.DataSocket;
+import com.intl.fix4intl.Socket.EchoClient;
 import java.awt.Color;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
@@ -88,12 +90,23 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
         application.addLogonObservable(this);
         application.addOrderObservable(this);
         
+        
         this.setComboValues(orderTableModel, executionTableModel, instrumentTableModel);
         MessageStoreFactory messageStoreFactory = new FileStoreFactory(settings);
         LogFactory logFactory = new ScreenLogFactory(true, true, true, logHeartbeats);
         MessageFactory messageFactory = new DefaultMessageFactory();
         
         initiator = new SocketInitiator(application, messageStoreFactory, settings, logFactory,messageFactory);
+        
+        ////socketData
+        
+        
+        //new Thread(client);
+        //client.
+//        DataSocket socket = new DataSocket(application,5555);
+//        new Thread(socket).start();
+        
+        //socket.start(5555);
         
     }
     
@@ -311,7 +324,7 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
         replaceButton = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setTitle("FIX INTL");
+        setTitle("FIX4ARG");
 
         jLabel1.setText("Instrumento");
 
@@ -496,15 +509,13 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 939, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 991, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 222, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 17, Short.MAX_VALUE))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("Ordenes", jPanel2);

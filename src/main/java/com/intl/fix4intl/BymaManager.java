@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.intl.fix4intl.DBController.QuotationsBymaJpaController;
 import com.intl.fix4intl.Model.QuotationsByma;
+import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.Timestamp;
@@ -19,6 +20,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import quickfix.FieldNotFound;
@@ -73,11 +76,12 @@ public class BymaManager extends Manager {
     private final List<MarketSecurityListRequestInfo> marketInfoList = new LinkedList();
     public final List<Instrument> instruments = new ArrayList<>();
     private AtomicInteger countHeartBeat = new AtomicInteger(0);
-
+    private static Instrument instrument;
+    private static Message message;
     public BymaManager(OrderTableModel orderTableModel,
             ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable) {
-        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable);
+            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations) {
+        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations);
     }
 
     @Override
@@ -208,7 +212,7 @@ public class BymaManager extends Manager {
         int length = message.getNoMDEntries().getValue();
 
         Symbol symbol = message.getSymbol();
-        Instrument instrument = getInstrument(symbol.getValue(), instruments);
+        instrument = getInstrument(symbol.getValue(), instruments);
         int bookType = message.getMDBookType().getValue();
 
         if (bookType == MDBookType.PRICE_DEPTH) {
@@ -228,7 +232,7 @@ public class BymaManager extends Manager {
             System.out.println("Market Data Full Refresh Not Price Depth: " + bookType);
         }
         if (instrument != null) {
-            insertQuotesByma(instrument, message);
+            insertQuotesByma();
         }
         instrumentTableModel.update(instruments);
     }
@@ -238,7 +242,7 @@ public class BymaManager extends Manager {
 
         MarketDataIncrementalRefresh.NoMDEntries group = new MarketDataIncrementalRefresh.NoMDEntries();
         int length = message.getNoMDEntries().getValue();
-        Instrument instrument = null;
+        //Instrument instrument = null;
         for (int i = 1; i <= length; i++) {
 
             Group MDFullGrp = message.getGroup(i, new MarketDataIncrementalRefresh.NoMDEntries());
@@ -251,13 +255,19 @@ public class BymaManager extends Manager {
             }
         }
         if (instrument != null) {
-            insertQuotesByma(instrument, message);
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+             executor.submit(() -> {
+                 if(!Thread.interrupted()){
+                     insertQuotesByma();
+                 }
+            });
+            
         }
         instrumentTableModel.update(instruments);
 
     }
 
-    private void insertQuotesByma(Instrument instrument, Message message) {
+    private static void insertQuotesByma() {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setPropertyNamingStrategy(PropertyNamingStrategy.UPPER_CAMEL_CASE);

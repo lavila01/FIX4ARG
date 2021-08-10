@@ -3,14 +3,18 @@ package com.intl.fix4intl;
 import com.intl.fix4intl.DBController.QuotationsJpaController;
 import com.intl.fix4intl.Observable.LogonEvent;
 import com.intl.fix4intl.Observable.LogonObservable;
+import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
+import com.intl.fix4intl.RestOrdersGson.RestOrderService;
+import com.intl.fix4intl.RestOrdersGson.OrderDTO;
+import com.intl.fix4intl.Socket.EchoClient;
+
 import java.beans.PropertyChangeListener;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import quickfix.*;
 import quickfix.field.*;
@@ -25,6 +29,7 @@ public class App extends MessageCracker implements Application {
 
     private final LogonObservable logonObservable = new LogonObservable();
     private final OrderObservable orderObservable = new OrderObservable();
+    private final ObservableQuotations observableQuotations = new ObservableQuotations();
     public final List<Instrument> instruments = new ArrayList<>(); 
     private final AtomicInteger countHeartBeat = new AtomicInteger(0);
     
@@ -38,14 +43,25 @@ public class App extends MessageCracker implements Application {
     RofexManager rofexManager;
     Manager manager = null;
     SessionSettings settings;
+    
+    EchoClient client;
+    RestOrderService restService;
+    OrderTableModel orderTableModel;
 
-    public App(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, SessionSettings settings) {       
+    public App(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, SessionSettings settings) throws ConfigError {
         con = new QuotationsJpaController();
-        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable);
-        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable);
+        
+        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations);
+        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations);
+        this.orderTableModel = orderTableModel;
         this.settings = settings;
         System.out.println("Connection -->" + con.getEntityManager().getProperties().toString());
-        
+        //service to send orders
+        restService = new RestOrderService(settings);
+//        client = new EchoClient("localhost", 5555);
+//        new Thread(client).start();
+//        addQuotationsbservable(new SocketManagerListener(client));
+
     }
 
     private boolean mercadoEsBYMA(SessionID sessionID) {
@@ -79,6 +95,7 @@ public class App extends MessageCracker implements Application {
     public void addOrderObservable(PropertyChangeListener observer) {
         orderObservable.addPropertyChangeListener(observer);
     }
+    
 
     /**
      *
@@ -156,14 +173,14 @@ public class App extends MessageCracker implements Application {
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.NEWS)) {
                         System.out.println("News Message --> " + message);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_LIST)) {
-                        System.out.println("SECURITY_LIST -> " + message);
+                        //System.out.println("SECURITY_LIST -> " + message);
                         this.manager.fillInstrumentList(message, sessionID);
                         starQuotes = true;
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_SNAPSHOT_FULL_REFRESH)) {
-                        System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
+                        //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
                         this.manager.fillCotizaciones((MarketDataSnapshotFullRefresh) message, sessionID);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_INCREMENTAL_REFRESH)) {
-                        System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
+                        //System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
                         this.manager.fillCotizaciones((MarketDataIncrementalRefresh) message, sessionID);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.INDICATION_OF_INTEREST)) {
                         System.out.println("INDICATION_OF_INTEREST -> " + message);
@@ -247,33 +264,47 @@ public class App extends MessageCracker implements Application {
         if (MessageUtils.isLogon(message.toString())) {
             //byma test
             if (mercadoEsBYMA(sessionId)) {
-                //DEV BYMA
-                message.getHeader().setField(new StringField(Username.FIELD, "dmx240-1"));
-                message.getHeader().setField(new StringField(Password.FIELD, "nueva123"));
-
-                //PROD BYMA
-//                message.getHeader().setField(new StringField(Username.FIELD, "dmx240-1"));
-//                message.getHeader().setField(new StringField(Password.FIELD, "aguacate"));
-                System.out.println("toAdmin --Logon BYMA>" + message);
-            }
-
-            if (mercadoEsROFEX(sessionId)) {
-                //rofex test
-                message.getHeader().setField(new StringField(Username.FIELD, "marvelalvarez892294"));
                 try {
-                    message.getHeader().setField(new StringField(Password.FIELD, settings.getString(sessionId,"Password")));
+                    //DEV BYMA
+                    String user = settings.getString("SenderCompID");
+                    String password = settings.getString("Password");
+                    message.getHeader().setField(new StringField(Username.FIELD, user));
+                    message.getHeader().setField(new StringField(Password.FIELD, password));
+                    System.out.println("toAdmin --Logon BYMA>" + message);
                 } catch (ConfigError ex) {
                     ex.printStackTrace();
                 }
-                //rofex prod       
-//                message.getHeader().setField(new StringField(Username.FIELD, "FIX_INTL"));
-//                message.getHeader().setField(new StringField(Password.FIELD, "9c3tZ3rN"));
+            }
+
+            if (mercadoEsROFEX(sessionId)) {
+                //rofex test  
+                try {
+                    System.out.println(settings.getString("UserName")+" - - "+settings.getString("Password"));
+                    if(settings.isSetting("UserName") && settings.isSetting("Password")){
+                        String user = settings.getString("UserName");
+                        String password = settings.getString("Password");
+                        message.getHeader().setField(new StringField(Username.FIELD, user));
+                        message.getHeader().setField(new StringField(Password.FIELD, password));
+                    }
+                } catch (ConfigError ex) {
+                    ex.printStackTrace();
+                }
                 System.out.println("toAdmin --Logon ROFEX>" + message);
             }
 
         }
         if (MessageUtils.isHeartbeat(message.toString())) {
             System.out.println("toAdmin --Heaetbeat>" + message);
+            //ask for Orders to send
+            try {
+                List<OrderDTO> orderDTOS = restService.getOrdersGson();
+                for (OrderDTO orderDTO: orderDTOS) {
+                    submitOrder(orderDTO, sessionId);
+                }
+
+            } catch (IOException | FieldNotFound e) {
+                e.printStackTrace();
+            }
 
         }
 
@@ -335,7 +366,7 @@ public class App extends MessageCracker implements Application {
      */
     @Override
     public void toApp(Message message, SessionID sessionId) throws DoNotSend {
-        System.out.println("to app --> " + message);
+        //System.out.println("to app --> " + message);
     }
 
     public void cancel(Order order) {
@@ -369,4 +400,31 @@ public class App extends MessageCracker implements Application {
         return isMissingField;
     }
 
+    private void addQuotationsbservable(PropertyChangeListener observer) {
+        observableQuotations.addPropertyChangeListener(observer);
+        System.out.println("added property");
+    }
+
+    private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
+        System.out.println(orderDTO);
+        Order newOrder = new Order();
+        newOrder.setAccount("142370");// fijo?
+        newOrder.setSide(OrderSide.SELL); //fijo?
+        newOrder.setType(new OrderType(orderDTO.getTipoPrecio().getCodigoMercado()));
+        newOrder.setTIF(OrderTIF.DAY);// fijo?
+        //newOrder.setSetType(OrderSettType.CASH);
+        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoDefault());/// preguntar el fijo
+        newOrder.setQuantity(orderDTO.getCantidad());
+        newOrder.setOpen(newOrder.getQuantity());
+        OrderType type = newOrder.getType();
+        if (type == OrderType.LIMIT || type == OrderType.STOP_LIMIT) {
+            newOrder.setLimit(orderDTO.getPrecio());
+        }
+//        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
+//            //newOrder.setStop(stopPriceTextField.getText());
+//        }
+        newOrder.setSessionID(sessionId);
+        orderTableModel.addOrder(newOrder);
+        sendOrder(newOrder);
+    }
 }

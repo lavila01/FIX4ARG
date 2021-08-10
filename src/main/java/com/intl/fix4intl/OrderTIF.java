@@ -16,7 +16,7 @@ public class OrderTIF {
 
     private String name;
 
-    private OrderTIF(String name) {
+    public OrderTIF(String name) {
         this.name = name;
         synchronized(OrderTIF.class) {
             known.put(name, this);

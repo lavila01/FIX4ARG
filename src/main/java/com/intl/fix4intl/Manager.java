@@ -5,8 +5,11 @@
  */
 package com.intl.fix4intl;
 
+import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderEvent;
 import com.intl.fix4intl.Observable.OrderObservable;
+import com.intl.fix4intl.Socket.EchoClient;
+import java.beans.PropertyChangeListener;
 import java.lang.reflect.InvocationTargetException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -73,20 +76,25 @@ public abstract class Manager {
     protected ExecutionTableModel executionTableModel;
     protected InstrumentTableModel instrumentTableModel;
     protected OrderObservable orderObservable;
+    protected ObservableQuotations observableQuotations;
 
     private static final TwoWayMap sideMap = new TwoWayMap();
     private static final TwoWayMap typeMap = new TwoWayMap();
     private static final TwoWayMap tifMap = new TwoWayMap();
     private static final TwoWayMap setTypeMap = new TwoWayMap();
+    
+    //EchoClient client;
 
-    public Manager(OrderTableModel orderTableModel,
-            ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable) {
+    public Manager(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, 
+            OrderObservable orderObservable, 
+            ObservableQuotations observableQuotations) {
         this.executionTableModel = executionTableModel;
         this.orderTableModel = orderTableModel;
         this.instrumentTableModel = instrumentTableModel;
         this.orderObservable = orderObservable;
+        this.observableQuotations = observableQuotations;
         fillValuesMap();
+        
     }
 
     public abstract List<Instrument> getInstruments();
@@ -414,10 +422,10 @@ public abstract class Manager {
         sideMap.put(OrderSide.SHORT_SELL_EXEMPT, new Side(Side.SELL_SHORT_EXEMPT));
         sideMap.put(OrderSide.CROSS, new Side(Side.CROSS));
         sideMap.put(OrderSide.CROSS_SHORT, new Side(Side.CROSS_SHORT));
-
+///aqui error 40
         typeMap.put(OrderType.MARKET, new OrdType(OrdType.MARKET));
         typeMap.put(OrderType.LIMIT, new OrdType(OrdType.LIMIT));
-        typeMap.put(OrderType.STOP, new OrdType(OrdType.STOP_STOP_LOSS));//tenia stop
+        //typeMap.put(OrderType.STOP, new OrdType(OrdType.STOP_STOP_LOSS));//tenia stop
         typeMap.put(OrderType.STOP_LIMIT, new OrdType(OrdType.STOP_LIMIT));
 
         tifMap.put(OrderTIF.DAY, new TimeInForce(TimeInForce.DAY));
@@ -431,5 +439,6 @@ public abstract class Manager {
         setTypeMap.put(OrderSettType.NEXT_DAY, new SettlType(SettlType.NEXT_DAY));
         setTypeMap.put(OrderSettType.T_2, new SettlType(SettlType.T_2));
     }
+    
 
 }

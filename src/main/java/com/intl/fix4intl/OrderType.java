@@ -22,7 +22,7 @@ public class OrderType {
 
     static private OrderType[] array = { MARKET, LIMIT, STOP, STOP_LIMIT };
 
-    private OrderType(String name) {
+    public OrderType(String name) {
         this.name = name;
         synchronized(OrderType.class) {
             known.put(name, this);

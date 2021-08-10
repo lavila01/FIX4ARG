@@ -10,7 +10,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.intl.fix4intl.DBController.QuotationsJpaController;
 import com.intl.fix4intl.Model.Quotations;
+import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
+import com.intl.fix4intl.Observable.QuotationEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.Timestamp;
 import java.text.DateFormat;
@@ -19,7 +21,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import quickfix.FieldNotFound;
 import quickfix.Group;
@@ -28,31 +35,7 @@ import quickfix.Session;
 import quickfix.SessionID;
 import quickfix.SessionNotFound;
 import quickfix.StringField;
-import quickfix.field.Account;
-import quickfix.field.ClOrdID;
-import quickfix.field.Currency;
-import quickfix.field.DeliverToCompID;
-import quickfix.field.ExpireDate;
-import quickfix.field.MDUpdateType;
-import quickfix.field.MarketDepth;
-import quickfix.field.MarketID;
-import quickfix.field.MarketSegmentID;
-import quickfix.field.OrdType;
-import quickfix.field.OrderQty;
-import quickfix.field.PartyIDSource;
-import quickfix.field.PartyRole;
-import quickfix.field.SecurityID;
-import quickfix.field.SecurityListRequestType;
-import quickfix.field.SecurityListType;
-import quickfix.field.SecurityReqID;
-import quickfix.field.SecurityType;
-import quickfix.field.SettlType;
-import quickfix.field.Side;
-import quickfix.field.SubscriptionRequestType;
-import quickfix.field.Symbol;
-import quickfix.field.TotNoRelatedSym;
-import quickfix.field.TradSesStatus;
-import quickfix.field.TransactTime;
+import quickfix.field.*;
 import quickfix.fix50sp2.MarketDataIncrementalRefresh;
 import quickfix.fix50sp2.MarketDataRequest;
 import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
@@ -71,11 +54,12 @@ public class RofexManager extends Manager {
     private final List<MarketSecurityListRequestInfo> marketInfoList = new LinkedList();
     public final List<Instrument> instruments = new ArrayList<>();
     private AtomicInteger countHeartBeat = new AtomicInteger(0);
-
+    ExecutorService executor;
+    
     public RofexManager(OrderTableModel orderTableModel,
             ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable) {
-        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable);
+            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations) {
+        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations);
     }
 
     @Override
@@ -86,19 +70,19 @@ public class RofexManager extends Manager {
                     new ClOrdID(order.getID()), sideToFIXSide(order.getSide()),
                     new TransactTime(), typeToFIXType(order.getType()));
             newOrderSingle.set(new Currency(in.getCurrency()));
-            newOrderSingle.setField(new Account("111786"));//leonel
+            newOrderSingle.setField(new Account(order.getAccount()));
             newOrderSingle.setField(setTypeToFIXSetType(order.getSetType()));
-//            newOrderSingle.setField(new SecurityExchange("XMEV"));
+            newOrderSingle.setField(new SecurityExchange(order.getSessionID().getTargetCompID()));
             newOrderSingle.set(new OrderQty(order.getQuantity()));
             newOrderSingle.set(new Symbol(in.getAbreviatura()));
-//            newOrderSingle.getHeader().setField(new StringField(DeliverToCompID.FIELD, "FGW"));
+            newOrderSingle.getHeader().setField(new StringField(DeliverToCompID.FIELD, order.getSessionID().getTargetCompID()));
             newOrderSingle.setField(new SecurityType(in.getSecurityType()));
-            newOrderSingle.setField(new ExpireDate("20191210"));
+           // newOrderSingle.setField(new ExpireDate("20191210"));//
 
             NewOrderSingle.NoPartyIDs noPartyIDs = new NewOrderSingle.NoPartyIDs();
             noPartyIDs.setField(new PartyIDSource(PartyIDSource.PROPRIETARY_CUSTOM_CODE));
-//            noPartyIDs.setField(new PartyID("dmax240a"));
-            noPartyIDs.setField(new PartyRole(PartyRole.TRADER_MNEMONIC));
+            //noPartyIDs.setField(new PartyID("dmax240a"));
+            noPartyIDs.setField(new PartyRole(PartyRole.TRADER_MNEMONIC));//PartyRole.ORDER_ORIGINATION_TRADER  11
             newOrderSingle.addGroup(noPartyIDs);
             send(populateOrder(order, newOrderSingle), order.getSessionID());
 
@@ -210,7 +194,7 @@ public class RofexManager extends Manager {
         int length = message.getNoMDEntries().getValue();
 
         Symbol symbol = message.getSymbol();
-        Instrument instrument = getInstrument(symbol.getValue(), instruments);
+        final Instrument instrument = getInstrument(symbol.getValue(), instruments);
 
         if (instrument == null) {
             System.out.println("El Symbol no esta en la lista: " + symbol.getValue());
@@ -223,9 +207,21 @@ public class RofexManager extends Manager {
                 instrument.setValues(MDFullGrp, securityID);
 
             }
+            
         }
         if (instrument != null) {
-            insertQuotes(instrument, message);
+            final Instrument inst = instrument;
+            final Message mess = message;
+            executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                     try {
+                         insertQuotes(inst, mess);
+                     } catch (Exception ex) {
+                         Logger.getLogger(RofexManager.class.getName()).log(Level.SEVERE, null, ex);
+                     }
+                 
+            });
+            
         }
 
         instrumentTableModel.update(instruments);
@@ -249,13 +245,37 @@ public class RofexManager extends Manager {
             }
         }
         if (instrument != null) {
-            insertQuotes(instrument, message);
+            final Instrument inst = instrument;
+            final Message mess = message;
+//            Thread insertThread = new Thread((Runnable) new Runnable() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        insertQuotes(inst, mess);
+//                    } catch (Exception ex) {
+//                        Logger.getLogger(RofexManager.class.getName()).log(Level.SEVERE, null, ex);
+//                    }
+//                }
+//            
+//            });
+//            insertThread.start();
+
+           ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                if(!Thread.interrupted()){
+                    try {
+                        insertQuotes(inst, mess);
+                    } catch (Exception ex) {
+                        Logger.getLogger(RofexManager.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            });
         }
         instrumentTableModel.update(instruments);
 
     }
 
-    private void insertQuotes(Instrument instrument, Message message) {
+    private synchronized void insertQuotes(Instrument instrument,Message message) throws Exception {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setPropertyNamingStrategy(PropertyNamingStrategy.UPPER_CAMEL_CASE);
@@ -267,20 +287,18 @@ public class RofexManager extends Manager {
             q.setFixMessage(message.toRawString());
             q.setUltimoOperado(instrument.getUltimoOperado());
             q.setVariacion(instrument.getVariacion());
-            if (instrument.getSecurityID() != null) {
-                q.setSymbol(instrument.getSecurityID());
-            }
 
             String data = mapper.writeValueAsString(instrument);
-            System.out.println("DATA: " + data);
+
             q.setData(data);
+            //notify Obsevable
+            observableQuotations.setQuotationEvent(new QuotationEvent(q));
+            //
             QuotationsJpaController c = new QuotationsJpaController();
             c.createIfnotExist(q);
-        } catch (FieldNotFound | JsonProcessingException ex) {
-        } catch (NullPointerException ex) {
-            String x = ex.getMessage();
-        } catch (Exception ex) {
-        }
+        } catch (FieldNotFound | JsonProcessingException | NullPointerException ex) {
+            System.out.println(ex.getMessage());
+        } 
 
     }
 
