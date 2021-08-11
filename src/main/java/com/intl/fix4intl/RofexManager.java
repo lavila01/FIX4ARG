@@ -13,6 +13,12 @@ import com.intl.fix4intl.Model.Quotations;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
 import com.intl.fix4intl.Observable.QuotationEvent;
+import quickfix.Message;
+import quickfix.*;
+import quickfix.field.*;
+import quickfix.fix50sp2.*;
+import quickfix.fix50sp2.component.SecListGrp;
+
 import java.lang.reflect.InvocationTargetException;
 import java.sql.Timestamp;
 import java.text.DateFormat;
@@ -21,29 +27,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import quickfix.FieldNotFound;
-import quickfix.Group;
-import quickfix.Message;
-import quickfix.Session;
-import quickfix.SessionID;
-import quickfix.SessionNotFound;
-import quickfix.StringField;
-import quickfix.field.*;
-import quickfix.fix50sp2.MarketDataIncrementalRefresh;
-import quickfix.fix50sp2.MarketDataRequest;
-import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
-import quickfix.fix50sp2.NewOrderSingle;
-import quickfix.fix50sp2.OrderCancelReplaceRequest;
-import quickfix.fix50sp2.OrderCancelRequest;
-import quickfix.fix50sp2.SecurityListRequest;
-import quickfix.fix50sp2.component.SecListGrp;
 
 /**
  *
@@ -76,14 +65,14 @@ public class RofexManager extends Manager {
             newOrderSingle.set(new OrderQty(order.getQuantity()));
             newOrderSingle.set(new Symbol(in.getAbreviatura()));
             newOrderSingle.getHeader().setField(new StringField(DeliverToCompID.FIELD, order.getSessionID().getTargetCompID()));
-            newOrderSingle.setField(new SecurityType(in.getSecurityType()));
-           // newOrderSingle.setField(new ExpireDate("20191210"));//
+            newOrderSingle.setField(new SecurityExchange(order.getSessionID().getTargetCompID()));
 
-            NewOrderSingle.NoPartyIDs noPartyIDs = new NewOrderSingle.NoPartyIDs();
-            noPartyIDs.setField(new PartyIDSource(PartyIDSource.PROPRIETARY_CUSTOM_CODE));
+            // newOrderSingle.setField(new ExpireDate("20191210"));//
+            //NewOrderSingle.NoPartyIDs noPartyIDs = new NewOrderSingle.NoPartyIDs();
+            //noPartyIDs.setField(new PartyIDSource(PartyIDSource.PROPRIETARY_CUSTOM_CODE));
             //noPartyIDs.setField(new PartyID("dmax240a"));
-            noPartyIDs.setField(new PartyRole(PartyRole.TRADER_MNEMONIC));//PartyRole.ORDER_ORIGINATION_TRADER  11
-            newOrderSingle.addGroup(noPartyIDs);
+            //noPartyIDs.setField(new PartyRole(PartyRole.TRADER_MNEMONIC));//PartyRole.ORDER_ORIGINATION_TRADER  11
+            //newOrderSingle.addGroup(noPartyIDs);
             send(populateOrder(order, newOrderSingle), order.getSessionID());
 
         } else {

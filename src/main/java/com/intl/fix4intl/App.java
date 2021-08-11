@@ -5,21 +5,21 @@ import com.intl.fix4intl.Observable.LogonEvent;
 import com.intl.fix4intl.Observable.LogonObservable;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
-import com.intl.fix4intl.RestOrdersGson.RestOrderService;
 import com.intl.fix4intl.RestOrdersGson.OrderDTO;
+import com.intl.fix4intl.RestOrdersGson.RestOrderService;
 import com.intl.fix4intl.Socket.EchoClient;
+import quickfix.*;
+import quickfix.field.*;
+import quickfix.fix50sp2.MarketDataIncrementalRefresh;
+import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
 
+import javax.swing.*;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.swing.SwingUtilities;
-import quickfix.*;
-import quickfix.field.*;
-import quickfix.fix50sp2.MarketDataIncrementalRefresh;
-import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
 
 /**
  *
@@ -406,7 +406,7 @@ public class App extends MessageCracker implements Application {
     }
 
     private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
-        System.out.println(orderDTO);
+        //System.out.println(orderDTO);
         Order newOrder = new Order();
         newOrder.setAccount("142370");// fijo?
         newOrder.setSide(OrderSide.SELL); //fijo?
@@ -416,10 +416,10 @@ public class App extends MessageCracker implements Application {
         newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoDefault());/// preguntar el fijo
         newOrder.setQuantity(orderDTO.getCantidad());
         newOrder.setOpen(newOrder.getQuantity());
-        OrderType type = newOrder.getType();
-        if (type == OrderType.LIMIT || type == OrderType.STOP_LIMIT) {
-            newOrder.setLimit(orderDTO.getPrecio());
-        }
+        //OrderType type = newOrder.getType();
+        //if (type == OrderType.LIMIT || type == OrderType.STOP_LIMIT) {
+        newOrder.setLimit(orderDTO.getPrecio());
+        //}
 //        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
 //            //newOrder.setStop(stopPriceTextField.getText());
 //        }

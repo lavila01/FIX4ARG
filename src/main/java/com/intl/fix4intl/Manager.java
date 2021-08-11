@@ -8,8 +8,12 @@ package com.intl.fix4intl;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderEvent;
 import com.intl.fix4intl.Observable.OrderObservable;
-import com.intl.fix4intl.Socket.EchoClient;
-import java.beans.PropertyChangeListener;
+import quickfix.*;
+import quickfix.field.*;
+import quickfix.fix50sp2.MarketDataIncrementalRefresh;
+import quickfix.fix50sp2.MarketDataRequest;
+import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
+
 import java.lang.reflect.InvocationTargetException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -17,51 +21,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import quickfix.DefaultMessageFactory;
-import quickfix.FieldNotFound;
-import quickfix.Message;
-import quickfix.Session;
-import quickfix.SessionID;
-import quickfix.SessionNotFound;
-import quickfix.field.AggregatedBook;
-import quickfix.field.AvgPx;
-import quickfix.field.BeginString;
-import quickfix.field.BusinessRejectReason;
-import quickfix.field.ClOrdID;
-import quickfix.field.CumQty;
-import quickfix.field.Currency;
-import quickfix.field.DKReason;
-import quickfix.field.ExecID;
-import quickfix.field.LastPx;
-import quickfix.field.LastShares;
-import quickfix.field.LeavesQty;
-import quickfix.field.LocateReqd;
-import quickfix.field.MDEntryType;
-import quickfix.field.MDReqID;
-import quickfix.field.MsgSeqNum;
-import quickfix.field.MsgType;
-import quickfix.field.OrdStatus;
-import quickfix.field.OrdType;
-import quickfix.field.OrderID;
-import quickfix.field.OrderQty;
-import quickfix.field.OrigClOrdID;
-import quickfix.field.Price;
-import quickfix.field.RefMsgType;
-import quickfix.field.RefSeqNum;
-import quickfix.field.SecurityType;
-import quickfix.field.SenderCompID;
-import quickfix.field.SessionRejectReason;
-import quickfix.field.SettlType;
-import quickfix.field.Side;
-import quickfix.field.StopPx;
-import quickfix.field.SubscriptionRequestType;
-import quickfix.field.Symbol;
-import quickfix.field.TargetCompID;
-import quickfix.field.Text;
-import quickfix.field.TimeInForce;
-import quickfix.fix50sp2.MarketDataIncrementalRefresh;
-import quickfix.fix50sp2.MarketDataRequest;
-import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
 
 /**
  *
@@ -169,7 +128,7 @@ public abstract class Manager {
         }
 
         OrdStatus ordStatus = (OrdStatus) message.getField(new OrdStatus());
-
+//AQUI EL POST
         if (ordStatus.valueEquals(OrdStatus.REJECTED)) {
             order.setRejected(true);
             order.setOpen(0);
