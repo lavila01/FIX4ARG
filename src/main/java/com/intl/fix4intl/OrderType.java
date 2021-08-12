@@ -11,6 +11,7 @@ package com.intl.fix4intl;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class OrderType {
     static private Map<String, OrderType> known = new HashMap<String, OrderType>();
@@ -48,5 +49,18 @@ public class OrderType {
             ("OrderType:  " + type + " is unknown.");
         }
         return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OrderType orderType = (OrderType) o;
+        return Objects.equals(name, orderType.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 }

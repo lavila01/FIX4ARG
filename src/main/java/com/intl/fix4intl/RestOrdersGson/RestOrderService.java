@@ -9,6 +9,7 @@ import quickfix.SessionSettings;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -48,28 +49,33 @@ public class RestOrderService {
     return data;
     }
 
-    private StringBuilder postData() {
-        StringBuilder data = new StringBuilder();
+    public StringBuilder postData(ResponseDTO responseDTO) {
+        StringBuilder response = new StringBuilder();
         try {
-
             HttpURLConnection con = (HttpURLConnection) ((new URL(PRODUCT_URL.concat(settings.getString("Wfsystems-post"))).openConnection()));
             con.setRequestMethod("POST");
             con.setRequestProperty("Content-Type", "application/json; utf-8");
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
 
-            String s;
-            try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
-                while ((s = in.readLine()) != null) {
-                    data.append(s);
+            String cursado = new Gson().toJson(responseDTO);
+            try(OutputStream os = con.getOutputStream()) {
+                byte[] input = cursado.getBytes(CHARSET);
+                os.write(input, 0, input.length);
+            }
+
+            try(BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), CHARSET))) {
+
+                String responseLine = null;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
                 }
-            } catch (IOException ex) {
-                ex.printStackTrace();
+                System.out.println(response.toString());
             }
         }catch (IOException | ConfigError ex){
             ex.printStackTrace();
         }
-        return data;
+        return response;
     }
 
     public List<OrderDTO> getOrdersGson() throws IOException {

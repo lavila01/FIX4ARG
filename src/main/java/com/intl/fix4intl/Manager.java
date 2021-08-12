@@ -8,6 +8,9 @@ package com.intl.fix4intl;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderEvent;
 import com.intl.fix4intl.Observable.OrderObservable;
+import com.intl.fix4intl.RestOrdersGson.OrderDTO;
+import com.intl.fix4intl.RestOrdersGson.ResponseDTO;
+import com.intl.fix4intl.RestOrdersGson.RestOrderService;
 import quickfix.*;
 import quickfix.field.*;
 import quickfix.fix50sp2.MarketDataIncrementalRefresh;
@@ -41,17 +44,19 @@ public abstract class Manager {
     private static final TwoWayMap typeMap = new TwoWayMap();
     private static final TwoWayMap tifMap = new TwoWayMap();
     private static final TwoWayMap setTypeMap = new TwoWayMap();
-    
-    //EchoClient client;
+    protected final HashMap<String, OrderDTO> idToOrderDto = new HashMap<>();
+    // Service
+    private RestOrderService restService;
 
-    public Manager(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, 
-            OrderObservable orderObservable, 
-            ObservableQuotations observableQuotations) {
+    public Manager(OrderTableModel orderTableModel, ExecutionTableModel executionTableModel, InstrumentTableModel instrumentTableModel,
+                   OrderObservable orderObservable,
+                   ObservableQuotations observableQuotations, RestOrderService restService) {
         this.executionTableModel = executionTableModel;
         this.orderTableModel = orderTableModel;
         this.instrumentTableModel = instrumentTableModel;
         this.orderObservable = orderObservable;
         this.observableQuotations = observableQuotations;
+        this.restService = restService;
         fillValuesMap();
         
     }
@@ -128,27 +133,47 @@ public abstract class Manager {
         }
 
         OrdStatus ordStatus = (OrdStatus) message.getField(new OrdStatus());
-//AQUI EL POST
+        //AQUI EL POST
+        ResponseDTO response = new ResponseDTO();
         if (ordStatus.valueEquals(OrdStatus.REJECTED)) {
             order.setRejected(true);
             order.setOpen(0);
+            //rejected
+            response.setStatus(ResponseDTO.REJECTED);
         } else if (ordStatus.valueEquals(OrdStatus.CANCELED)
                 || ordStatus.valueEquals(OrdStatus.DONE_FOR_DAY)) {
             order.setCanceled(true);
             order.setOpen(0);
+            //cancelled
+            response.setStatus(ResponseDTO.CANCELED);
         } else if (ordStatus.valueEquals(OrdStatus.NEW)) {
             if (order.isNew()) {
                 order.setNew(false);
             }
+            //new
+            response.setStatus(ResponseDTO.NEW);
         }
 
         try {
             order.setMessage(message.getField(new Text()).getValue());
         } catch (FieldNotFound e) {
         }
-
+        //text
+        response.setText(order.getMessage());
+        OrderDTO dto = idToOrderDto.remove(order.getID());
+        response.setOrdenTradingId(dto.getId());
         this.orderTableModel.updateOrder(order, message.getField(new ClOrdID()).getValue());
         this.orderObservable.setOrderEvent(new OrderEvent(order));
+
+        //id
+        Long clOrdID = 0L;
+        try {
+            clOrdID = Long.parseLong(message.getField(new ClOrdID()).getValue());
+        }catch (NumberFormatException ex){
+
+        }
+        response.setClOrdID(clOrdID);
+        response.setOrderID(message.getField(new OrderID()).getValue());
 
         if (fillSize > 0) {
             Execution execution = new Execution();
@@ -167,7 +192,7 @@ public abstract class Manager {
             execution.setText(text);
             executionTableModel.addExecution(execution);
         }
-
+        System.out.println(restService.postData(response));
     }
 
     public void cancelReject(Message message, SessionID sessionID) throws FieldNotFound {

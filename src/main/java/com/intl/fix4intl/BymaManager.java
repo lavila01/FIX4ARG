@@ -12,6 +12,13 @@ import com.intl.fix4intl.DBController.QuotationsBymaJpaController;
 import com.intl.fix4intl.Model.QuotationsByma;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
+import com.intl.fix4intl.RestOrdersGson.RestOrderService;
+import quickfix.Message;
+import quickfix.*;
+import quickfix.field.*;
+import quickfix.fix50sp2.*;
+import quickfix.fix50sp2.component.SecListGrp;
+
 import java.lang.reflect.InvocationTargetException;
 import java.sql.Timestamp;
 import java.text.DateFormat;
@@ -24,48 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import quickfix.FieldNotFound;
-import quickfix.Group;
-import quickfix.Message;
-import quickfix.Session;
-import quickfix.SessionID;
-import quickfix.SessionNotFound;
-import quickfix.StringField;
-import quickfix.field.Account;
-import quickfix.field.ClOrdID;
-import quickfix.field.Currency;
-import quickfix.field.DeliverToCompID;
-import quickfix.field.ExpireDate;
-import quickfix.field.MDBookType;
-import quickfix.field.MDUpdateType;
-import quickfix.field.MarketDepth;
-import quickfix.field.MarketSegmentID;
-import quickfix.field.OrdType;
-import quickfix.field.OrderQty;
-import quickfix.field.PartyID;
-import quickfix.field.PartyIDSource;
-import quickfix.field.PartyRole;
-import quickfix.field.SecurityExchange;
-import quickfix.field.SecurityID;
-import quickfix.field.SecurityListRequestType;
-import quickfix.field.SecurityListType;
-import quickfix.field.SecurityReqID;
-import quickfix.field.SecurityType;
-import quickfix.field.SettlType;
-import quickfix.field.Side;
-import quickfix.field.SubscriptionRequestType;
-import quickfix.field.Symbol;
-import quickfix.field.TotNoRelatedSym;
-import quickfix.field.TradSesStatus;
-import quickfix.field.TransactTime;
-import quickfix.fix50sp2.MarketDataIncrementalRefresh;
-import quickfix.fix50sp2.MarketDataRequest;
-import quickfix.fix50sp2.MarketDataSnapshotFullRefresh;
-import quickfix.fix50sp2.NewOrderSingle;
-import quickfix.fix50sp2.OrderCancelReplaceRequest;
-import quickfix.fix50sp2.OrderCancelRequest;
-import quickfix.fix50sp2.SecurityListRequest;
-import quickfix.fix50sp2.component.SecListGrp;
 
 /**
  *
@@ -80,8 +45,8 @@ public class BymaManager extends Manager {
     private static Message message;
     public BymaManager(OrderTableModel orderTableModel,
             ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations) {
-        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations);
+            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations, RestOrderService restService) {
+        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations, restService);
     }
 
     @Override

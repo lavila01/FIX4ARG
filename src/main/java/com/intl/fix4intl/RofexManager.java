@@ -13,6 +13,7 @@ import com.intl.fix4intl.Model.Quotations;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
 import com.intl.fix4intl.Observable.QuotationEvent;
+import com.intl.fix4intl.RestOrdersGson.RestOrderService;
 import quickfix.Message;
 import quickfix.*;
 import quickfix.field.*;
@@ -46,9 +47,9 @@ public class RofexManager extends Manager {
     ExecutorService executor;
     
     public RofexManager(OrderTableModel orderTableModel,
-            ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations) {
-        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations);
+                        ExecutionTableModel executionTableModel,
+                        InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations, RestOrderService restService) {
+        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations, restService);
     }
 
     @Override
@@ -119,14 +120,16 @@ public class RofexManager extends Manager {
                 MarketSecurityListRequestInfo marketInfoTest = new MarketSecurityListRequestInfo(sessionID, marketSegmentIDList);
                 marketInfoList.add(marketInfoTest);
             } else {
-                marketInfoList.stream().filter(m -> m.getSessionID().equals(sessionID)).collect(Collectors.toList())
-                        .get(0)
-                        .getMarketSegmentID().add(new MarketSegmentID(message.getString(MarketSegmentID.FIELD)));
+                marketInfoList.stream().filter(m -> m.getSessionID().equals(sessionID)).collect(Collectors.toList()).forEach(m-> {
+                    try {
+                        m.getMarketSegmentID().add(new MarketSegmentID(message.getString(MarketSegmentID.FIELD)));
+                    } catch (FieldNotFound fieldNotFound) {
+                        fieldNotFound.printStackTrace();
+                    }
+                });
             }
-
             requestSecurityList(message, sessionID);
         }
-
     }
 
     @Override
@@ -140,7 +143,7 @@ public class RofexManager extends Manager {
 
         SecurityListRequest securityListRequest = new SecurityListRequest();
         securityListRequest.setField(new SecurityReqID(reqId));
-        securityListRequest.setField(new SecurityListRequestType(SecurityListType.NEWSPAPER_LIST));
+        securityListRequest.setField(new SecurityListRequestType(SecurityListType.NEWSPAPER_LIST));//NEWSPAPER_LIST));
         securityListRequest.setField(marketID);
         securityListRequest.setField(marketSegmentID);
         securityListRequest.setField(new SubscriptionRequestType(SubscriptionRequestType.SNAPSHOT_UPDATES));
@@ -236,18 +239,6 @@ public class RofexManager extends Manager {
         if (instrument != null) {
             final Instrument inst = instrument;
             final Message mess = message;
-//            Thread insertThread = new Thread((Runnable) new Runnable() {
-//                @Override
-//                public void run() {
-//                    try {
-//                        insertQuotes(inst, mess);
-//                    } catch (Exception ex) {
-//                        Logger.getLogger(RofexManager.class.getName()).log(Level.SEVERE, null, ex);
-//                    }
-//                }
-//            
-//            });
-//            insertThread.start();
 
            ExecutorService executor = Executors.newSingleThreadExecutor();
             executor.submit(() -> {

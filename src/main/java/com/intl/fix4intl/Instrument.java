@@ -6,27 +6,20 @@
 package com.intl.fix4intl;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import quickfix.FieldNotFound;
+import quickfix.Group;
+import quickfix.SessionID;
+import quickfix.field.*;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
+import java.util.Objects;
 import java.util.TreeMap;
-import quickfix.FieldNotFound;
-import quickfix.Group;
-import quickfix.SessionID;
-import quickfix.field.MDEntryPositionNo;
-import quickfix.field.MDEntryPx;
-import quickfix.field.MDEntrySize;
-import quickfix.field.MDEntryType;
-import quickfix.field.MaxTradeVol;
-import quickfix.field.MinPriceIncrement;
-import quickfix.field.MinTradeVol;
-import quickfix.field.SettlType;
-import quickfix.field.Symbol;
 
 /**
- *
  * @author yosbel
  */
 public class Instrument {
@@ -42,6 +35,9 @@ public class Instrument {
 
     @JsonProperty("fechaActualizacion")
     public String fechaActualizacion = "";
+
+    @JsonProperty("OrdType")
+    public String ordType = "";
 
     @JsonProperty("FormaOperativa")
     public String FormaOperativa = "";
@@ -140,6 +136,10 @@ public class Instrument {
     public Instrument(Group g, SessionID sessionID, String securityID) throws FieldNotFound {
         if (g.isSetField(Symbol.FIELD)) {
             this.abreviatura = g.getString(Symbol.FIELD);
+        }
+
+        if (g.isSetField(quickfix.field.OrdType.FIELD)) {
+            this.ordType = g.getString(OrdType.FIELD);
         }
 
         if (g.isSetField(quickfix.field.SecurityID.FIELD)) {
@@ -298,6 +298,10 @@ public class Instrument {
     public String getFechaActualizacion() {
         return fechaActualizacion;
     }
+
+    public String getOrdType() { return ordType; }
+
+    public void setOrdType(String ordType) { this.ordType = ordType; }
 
     public void setFechaActualizacion(String fechaActualizacion) {
         this.fechaActualizacion = fechaActualizacion;
@@ -528,7 +532,20 @@ public class Instrument {
 
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Instrument that = (Instrument) o;
+        return abreviatura.equals(that.abreviatura);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(abreviatura);
+    }
 }
+
 
 class EntradaBook {
 

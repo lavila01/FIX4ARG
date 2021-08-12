@@ -17,7 +17,6 @@ import javax.swing.*;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,7 +29,6 @@ public class App extends MessageCracker implements Application {
     private final LogonObservable logonObservable = new LogonObservable();
     private final OrderObservable orderObservable = new OrderObservable();
     private final ObservableQuotations observableQuotations = new ObservableQuotations();
-    public final List<Instrument> instruments = new ArrayList<>(); 
     private final AtomicInteger countHeartBeat = new AtomicInteger(0);
     
     private boolean isAvailable = true;
@@ -50,17 +48,13 @@ public class App extends MessageCracker implements Application {
 
     public App(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, SessionSettings settings) throws ConfigError {
         con = new QuotationsJpaController();
-        
-        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations);
-        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations);
+        //service to send orders
+        restService = new RestOrderService(settings);
+        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService) ;
+        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService);
         this.orderTableModel = orderTableModel;
         this.settings = settings;
         System.out.println("Connection -->" + con.getEntityManager().getProperties().toString());
-        //service to send orders
-        restService = new RestOrderService(settings);
-//        client = new EchoClient("localhost", 5555);
-//        new Thread(client).start();
-//        addQuotationsbservable(new SocketManagerListener(client));
 
     }
 
@@ -408,23 +402,25 @@ public class App extends MessageCracker implements Application {
     private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
         //System.out.println(orderDTO);
         Order newOrder = new Order();
-        newOrder.setAccount("142370");// fijo?
-        newOrder.setSide(OrderSide.SELL); //fijo?
-        newOrder.setType(new OrderType(orderDTO.getTipoPrecio().getCodigoMercado()));
-        newOrder.setTIF(OrderTIF.DAY);// fijo?
+        newOrder.setAccount(orderDTO.getComitente().getCuentaZeni());
+        newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador()==1? OrderSide.BUY:OrderSide.SELL);
+        newOrder.setType(OrderType.parse(orderDTO.getTipoPrecio().getCodigoMercado()));
+        newOrder.setTIF(OrderTIF.DAY);// fijo!
         //newOrder.setSetType(OrderSettType.CASH);
-        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoDefault());/// preguntar el fijo
+        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoDefault());
         newOrder.setQuantity(orderDTO.getCantidad());
         newOrder.setOpen(newOrder.getQuantity());
-        //OrderType type = newOrder.getType();
-        //if (type == OrderType.LIMIT || type == OrderType.STOP_LIMIT) {
-        newOrder.setLimit(orderDTO.getPrecio());
-        //}
+        OrderType type = newOrder.getType();
+        if (type.equals(OrderType.LIMIT) || type.equals(OrderType.STOP_LIMIT)) {
+            newOrder.setLimit(orderDTO.getPrecio());
+        }
 //        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
-//            //newOrder.setStop(stopPriceTextField.getText());
+//            newOrder.setStop(orderDTO.getPrecio());
 //        }
         newOrder.setSessionID(sessionId);
         orderTableModel.addOrder(newOrder);
+        manager = mercadoEsROFEX(sessionId)?rofexManager:bymaManager;
+        manager.idToOrderDto.put(newOrder.getID(),orderDTO);
         sendOrder(newOrder);
     }
 }

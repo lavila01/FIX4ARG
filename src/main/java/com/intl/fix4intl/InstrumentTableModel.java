@@ -8,23 +8,25 @@
  */
 package com.intl.fix4intl;
 
-import java.util.ArrayList;
-import java.util.List;
 import javax.swing.table.AbstractTableModel;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class InstrumentTableModel extends AbstractTableModel {
 
-    private final List<Instrument> allInstruments;
+    private final Set<Instrument> allInstruments;
 
     private static final String[] columns
-            = {"Instrumento", "Moneda", "U. Operado", "Variacion", "Vencimiento",
-                "Sec. Type", "Sec. Id",  "F. Act", "F.Operativa",
+            = {"Instrumento", "Moneda", "U. Operado", "Tipo.Orden", "Variacion", "Vencimiento",
+                "Sec.Type", "Sec.Id",  "F.Act", "F.Operativa",
                 "Mercado", "Apertura", "Ajuste", "Min", "Max", "Volumen", "Cierre",
                  "Offers", "Trades", "Bids"
             };
 
     public InstrumentTableModel() {
-        this.allInstruments = new ArrayList<>();
+        this.allInstruments = new HashSet<>();
 
     }
 
@@ -46,7 +48,7 @@ public class InstrumentTableModel extends AbstractTableModel {
     @Override
     public Object getValueAt(int row, int column) {
 
-        Instrument instrument = this.allInstruments.get(row);
+        Instrument instrument = new ArrayList<>(allInstruments).get(row);
         if (column == 0) {
             return instrument.getAbreviatura();
         }
@@ -57,60 +59,67 @@ public class InstrumentTableModel extends AbstractTableModel {
             return instrument.getUltimoOperado();
         }
         if (column == 3) {
-            return instrument.getVariacion();
+            return instrument.getOrdType();
         }
         if (column == 4) {
-            return instrument.getSettlType();
+            return instrument.getVariacion();
         }
         if (column == 5) {
-            return instrument.getSecurityType();
+            return instrument.getSettlType();
         }
         if (column == 6) {
+            return instrument.getSecurityType();
+        }
+        if (column == 7) {
             return instrument.getSecurityID();
         }
       
-        if (column == 7) {
+        if (column == 8) {
             return instrument.getFechaActualizacion();
         }
-        if (column == 8) {
+        if (column == 9) {
             return instrument.getFormaOperativa();
         }
-        if (column == 9) {
+        if (column == 10) {
             return instrument.getMercado();
         }
-        if (column == 10) {
+        if (column == 11) {
             return instrument.getApertura();
         }
-        if (column == 11) {
+        if (column == 12) {
             return instrument.getAjuste();
         }
-        if (column == 12) {
+        if (column == 13) {
             return instrument.getMinimo();
         }
-        if (column == 13) {
+        if (column == 14) {
             return instrument.getMaximo();
         }
-        if (column == 14) {
+        if (column == 15) {
             return instrument.getVolumen();
         }
-        if (column == 15) {
+        if (column == 16) {
             return instrument.getCierre();
         }
        
-        if (column == 16) {
+        if (column == 17) {
             return instrument.getOffers().toString();
         }
-        if (column == 17) {
+        if (column == 18) {
             return instrument.getTrades().toString();
         }
-        if (column == 18) {
+        if (column == 19) {
             return instrument.getBids().toString();
         }
         return "";
     }
 
     public void update(List<Instrument> instruments) {
-        this.allInstruments.addAll(instruments);
+        for(Instrument inst : instruments){
+            allInstruments.remove(inst);
+             allInstruments.add(inst);
+        }
+        //instruments.forEach(allInstruments::remove);
         fireTableDataChanged();
     }
 }
