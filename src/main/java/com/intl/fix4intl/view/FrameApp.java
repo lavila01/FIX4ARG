@@ -5,53 +5,25 @@
  */
 package com.intl.fix4intl.view;
 
-import com.intl.fix4intl.App;
-import com.intl.fix4intl.ExecutionTableModel;
-import com.intl.fix4intl.InstrumentTableModel;
+import com.intl.fix4intl.*;
 import com.intl.fix4intl.Observable.LogonEvent;
 import com.intl.fix4intl.Observable.OrderEvent;
-import com.intl.fix4intl.Order;
-import com.intl.fix4intl.OrderSettType;
-import com.intl.fix4intl.OrderSide;
-import com.intl.fix4intl.OrderTIF;
-import com.intl.fix4intl.OrderTableModel;
-import com.intl.fix4intl.OrderType;
-import com.intl.fix4intl.Socket.DataSocket;
-import com.intl.fix4intl.Socket.EchoClient;
-import java.awt.Color;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import quickfix.*;
+
+import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.logging.Level;
-import javax.swing.ComboBoxModel;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.ListSelectionModel;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import quickfix.ConfigError;
-import quickfix.DefaultMessageFactory;
-import quickfix.FieldNotFound;
-import quickfix.FileStoreFactory;
-import quickfix.Initiator;
-import quickfix.LogFactory;
-import quickfix.MessageFactory;
-import quickfix.MessageStoreFactory;
-import quickfix.ScreenLogFactory;
-import quickfix.Session;
-import quickfix.SessionID;
-import quickfix.SessionSettings;
-import quickfix.SocketInitiator;
 
 /**
  *
@@ -61,27 +33,28 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
     
     private static Logger log = LoggerFactory.getLogger(FrameApp.class);
     private boolean initiatorStarted = false;
-    private Initiator initiator = null;
+    SessionSettings settings;
     private static FrameApp frameApp;
     private OrderTableModel orderTableModel;
     private App application;
     private Order order = null;//Orden seleccionada
+    private Initiator initiator;
 
     /**
      * Creates new form FrameApp
      */
-    public FrameApp() throws FileNotFoundException, ConfigError, IOException {
+    public FrameApp() throws ConfigError, IOException {
         initComponents();
         orderTableModel = new OrderTableModel();
         InstrumentTableModel instrumentTableModel = new InstrumentTableModel();
         ExecutionTableModel executionTableModel = new ExecutionTableModel();
-        String dir = getpath().getAbsolutePath()+"/config/app.cfg";
+        String dir = getpath().getAbsolutePath() + "/config/app.cfg";
         File f = new File(dir);
         if (!f.isFile()) {
             f = new File("config/app.cfg");
         }
         InputStream inputStream = new BufferedInputStream(new FileInputStream(f));
-        SessionSettings settings = new SessionSettings(inputStream);
+        settings = new SessionSettings(inputStream);
         inputStream.close();
         boolean logHeartbeats = Boolean.parseBoolean(System.getProperty("logHeartbeats", "true"));
         
@@ -353,7 +326,7 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
 
         jLabel12.setText("Cuenta");
 
-        jTextAccount.setText("111786");
+        jTextAccount.setText("REM2030");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
@@ -771,7 +744,6 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
 
     @Override
     public void propertyChange(PropertyChangeEvent arg) {
-        System.out.println("PROPERTY CHANGE");
         if (arg.getNewValue() instanceof LogonEvent) {
             LogonEvent logonEvent = (LogonEvent) arg.getNewValue();
             if (logonEvent.isLoggedOn()) {

@@ -130,86 +130,38 @@ public class App extends MessageCracker implements Application {
         }
     }
 
-    public class MessageProcessor implements Runnable {
-
-        private final quickfix.Message message;
-        private final SessionID sessionID;
-        private final Manager manager;
-
-        public MessageProcessor(Message message, SessionID sessionID, Manager manager) {
-            this.message = message;
-            this.sessionID = sessionID;
-            this.manager = manager;
-
+    private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
+        //System.out.println(orderDTO);
+        Order newOrder = new Order();
+        newOrder.setAccount(orderDTO.getComitente().getCuentaZeni());
+        newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador() == 1 ? OrderSide.BUY : OrderSide.SELL);
+        newOrder.setType(OrderType.parse(orderDTO.getTipoPrecio().getCodigoMercado()));
+        newOrder.setTIF(OrderTIF.DAY);// fijo!
+        //newOrder.setSetType(OrderSettType.CASH);
+        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoPorDefault());
+        newOrder.setQuantity(orderDTO.getCantidad());
+        newOrder.setOpen(newOrder.getQuantity());
+        OrderType type = newOrder.getType();
+        if (type.equals(OrderType.LIMIT) || type.equals(OrderType.STOP_LIMIT)) {
+            newOrder.setLimit(orderDTO.getPrecio());
         }
-
-        @Override
-        public void run() {
-            try {
-                MsgType msgType = new MsgType();
-                if (isAvailable) {
-                    //System.out.println("MessageProcessor --> " + message);
-                    if (isMissingField) {
-                        // For OpenFIX certification testing
-                        this.manager.sendBusinessReject(message, BusinessRejectReason.CONDITIONALLY_REQUIRED_FIELD_MISSING, "Conditionally required field missing");
-                    } else if (message.getHeader().isSetField(DeliverToCompID.FIELD)) {
-                        // This is here to support OpenFIX certification
-                        this.manager.sendSessionReject(message, SessionRejectReason.COMPID_PROBLEM);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.EXECUTION_REPORT)) {
-                        this.manager.executionReport(message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.ORDER_CANCEL_REJECT)) {
-                        this.manager.cancelReject(message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TRADING_SESSION_STATUS)) {
-                        //GetMarketInfo MarketSegmentID  .. DD .. MATB
-                        this.manager.fillMarketSecurityListRequestInfo(message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TEST_REQUEST)) {
-                        System.out.println("test Message --> " + message);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.NEWS)) {
-                        System.out.println("News Message --> " + message);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_LIST)) {
-                        //System.out.println("SECURITY_LIST -> " + message);
-                        this.manager.fillInstrumentList(message, sessionID);
-                        starQuotes = true;
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_SNAPSHOT_FULL_REFRESH)) {
-                        //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
-                        this.manager.fillCotizaciones((MarketDataSnapshotFullRefresh) message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_INCREMENTAL_REFRESH)) {
-                        //System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
-                        this.manager.fillCotizaciones((MarketDataIncrementalRefresh) message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.INDICATION_OF_INTEREST)) {
-                        System.out.println("INDICATION_OF_INTEREST -> " + message);
-                        this.manager.requestSecurityList(message, sessionID);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_REQUEST_REJECT)) {
-                        System.out.println("MARKET DATA REQUEST REJECT -> " + message);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TRADE_CAPTURE_REPORT)) {
-                        System.out.println("TRADE_CAPTURE_REPORT -> " + message);
-                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_STATUS)) {
-                        System.out.println("SECURITY STATUS -> " + message);
-                    } else {
-                        System.out.println("SIN MANEJAR -> " + message.getHeader().getField(msgType));
-                        System.out.println("SIN MANEJAR -> " + message);
-                        //sendBusinessReject(message, BusinessRejectReason.UNSUPPORTED_MESSAGE_TYPE,
-                        //      "Unsupported Message Type");
-                    }
-                } else {
-                    this.manager.sendBusinessReject(message, BusinessRejectReason.APPLICATION_NOT_AVAILABLE,
-                            "Application not available");
-                }
-            } catch (FieldNotFound | SessionNotFound e) {
-                System.out.println(e);
-            } catch (InterruptedException | InvocationTargetException ex) {
-            }
-
-        }
+//        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
+//            newOrder.setStop(orderDTO.getPrecio());
+//        }
+        newOrder.setSessionID(sessionId);
+        orderTableModel.addOrder(newOrder);
+        manager = mercadoEsROFEX(sessionId) ? rofexManager : bymaManager;
+        manager.idToOrderDto.put(newOrder.getID(), orderDTO);
+        sendOrder(newOrder);
     }
 
     /**
      * @param sessionId This method is called when quickfix creates a new
-     * session. A session comes into and remains in existence for the life of
-     * the application. Sessions exist whether or not a counter party is
-     * connected to it. As soon as a session is created, you can begin sending
-     * messages to it. If no one is logged on, the messages will be sent at the
-     * time a connection is established with the counterparts.
+     *                  session. A session comes into and remains in existence for the life of
+     *                  the application. Sessions exist whether or not a counter party is
+     *                  connected to it. As soon as a session is created, you can begin sending
+     *                  messages to it. If no one is logged on, the messages will be sent at the
+     *                  time a connection is established with the counterparts.
      */
     @Override
     public void onCreate(SessionID sessionId) {
@@ -399,28 +351,78 @@ public class App extends MessageCracker implements Application {
         System.out.println("added property");
     }
 
-    private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
-        //System.out.println(orderDTO);
-        Order newOrder = new Order();
-        newOrder.setAccount(orderDTO.getComitente().getCuentaZeni());
-        newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador()==1? OrderSide.BUY:OrderSide.SELL);
-        newOrder.setType(OrderType.parse(orderDTO.getTipoPrecio().getCodigoMercado()));
-        newOrder.setTIF(OrderTIF.DAY);// fijo!
-        //newOrder.setSetType(OrderSettType.CASH);
-        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoDefault());
-        newOrder.setQuantity(orderDTO.getCantidad());
-        newOrder.setOpen(newOrder.getQuantity());
-        OrderType type = newOrder.getType();
-        if (type.equals(OrderType.LIMIT) || type.equals(OrderType.STOP_LIMIT)) {
-            newOrder.setLimit(orderDTO.getPrecio());
+    public class MessageProcessor implements Runnable {
+
+        private final quickfix.Message message;
+        private final SessionID sessionID;
+        private final Manager manager;
+
+        public MessageProcessor(Message message, SessionID sessionID, Manager manager) {
+            this.message = message;
+            this.sessionID = sessionID;
+            this.manager = manager;
+
         }
-//        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
-//            newOrder.setStop(orderDTO.getPrecio());
-//        }
-        newOrder.setSessionID(sessionId);
-        orderTableModel.addOrder(newOrder);
-        manager = mercadoEsROFEX(sessionId)?rofexManager:bymaManager;
-        manager.idToOrderDto.put(newOrder.getID(),orderDTO);
-        sendOrder(newOrder);
+
+        @Override
+        public void run() {
+            try {
+                MsgType msgType = new MsgType();
+                if (isAvailable) {
+                    //System.out.println("MessageProcessor --> " + message);
+                    if (isMissingField) {
+                        // For OpenFIX certification testing
+                        this.manager.sendBusinessReject(message, BusinessRejectReason.CONDITIONALLY_REQUIRED_FIELD_MISSING, "Conditionally required field missing");
+                    } else if (message.getHeader().isSetField(DeliverToCompID.FIELD)) {
+                        // This is here to support OpenFIX certification
+                        this.manager.sendSessionReject(message, SessionRejectReason.COMPID_PROBLEM);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.EXECUTION_REPORT)) {
+                        System.out.println("EXECUTION REPORT --> " + message);
+                        this.manager.executionReport(message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.ORDER_CANCEL_REJECT)) {
+                        this.manager.cancelReject(message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TRADING_SESSION_STATUS)) {
+                        //GetMarketInfo MarketSegmentID  .. DD .. MATB
+                        System.out.println("TRADING_SESSION_STATUS -> " + message);
+                        this.manager.fillMarketSecurityListRequestInfo(message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TEST_REQUEST)) {
+                        System.out.println("test Message --> " + message);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.NEWS)) {
+                        System.out.println("News Message --> " + message);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_LIST)) {
+                        //System.out.println("SECURITY_LIST -> " + message);
+                        this.manager.fillInstrumentList(message, sessionID);
+                        starQuotes = true;
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_SNAPSHOT_FULL_REFRESH)) {
+                        //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
+                        this.manager.fillCotizaciones((MarketDataSnapshotFullRefresh) message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_INCREMENTAL_REFRESH)) {
+                        //System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
+                        this.manager.fillCotizaciones((MarketDataIncrementalRefresh) message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.INDICATION_OF_INTEREST)) {
+                        System.out.println("INDICATION_OF_INTEREST -> " + message);
+                        this.manager.requestSecurityList(message, sessionID);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_REQUEST_REJECT)) {
+                        System.out.println("MARKET DATA REQUEST REJECT -> " + message);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TRADE_CAPTURE_REPORT)) {
+                        System.out.println("TRADE_CAPTURE_REPORT -> " + message);
+                    } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_STATUS)) {
+                        System.out.println("SECURITY STATUS -> " + message);
+                    } else {
+                        System.out.println("SIN MANEJAR -> " + message.getHeader().getField(msgType));
+                        System.out.println("SIN MANEJAR -> " + message);
+                        //sendBusinessReject(message, BusinessRejectReason.UNSUPPORTED_MESSAGE_TYPE,
+                        //      "Unsupported Message Type");
+                    }
+                } else {
+                    this.manager.sendBusinessReject(message, BusinessRejectReason.APPLICATION_NOT_AVAILABLE,
+                            "Application not available");
+                }
+            } catch (FieldNotFound | SessionNotFound e) {
+                System.out.println(e);
+            } catch (InterruptedException | InvocationTargetException ex) {
+            }
+
+        }
     }
 }

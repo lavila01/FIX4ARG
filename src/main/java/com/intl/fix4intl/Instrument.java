@@ -34,7 +34,7 @@ public class Instrument {
     public String MDReqID = "";
 
     @JsonProperty("fechaActualizacion")
-    public String fechaActualizacion = "";
+    public String fechaActualizacion;
 
     @JsonProperty("OrdType")
     public String ordType = "";
@@ -131,7 +131,7 @@ public class Instrument {
     public TreeMap<Integer, EntradaBook> Offers = new TreeMap<>();
 
     @JsonProperty("Trades")
-    public TreeMap<String, Double> Trades = new TreeMap<String, Double>();
+    public TreeMap<String, Double> Trades = new TreeMap<>();
 
     public Instrument(Group g, SessionID sessionID, String securityID) throws FieldNotFound {
         if (g.isSetField(Symbol.FIELD)) {
@@ -252,7 +252,7 @@ public class Instrument {
     }
 
     private Double calcularVariacion() {
-        Double variacion;
+        double variacion;
 
         if (this.Apertura != 0) {
             variacion = this.UltimoOperado * 100 / this.Apertura - 100;
@@ -551,4 +551,12 @@ class EntradaBook {
 
     public Double EntryPx;
     public Double EntrySize;
+
+    @Override
+    public String toString() {
+        return "EntradaBook{" +
+                "EntryPx=" + EntryPx +
+                ", EntrySize=" + EntrySize +
+                '}';
+    }
 }

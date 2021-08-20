@@ -14,6 +14,7 @@ import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
 import com.intl.fix4intl.Observable.QuotationEvent;
 import com.intl.fix4intl.RestOrdersGson.RestOrderService;
+import org.apache.commons.lang.StringUtils;
 import quickfix.Message;
 import quickfix.*;
 import quickfix.field.*;
@@ -33,7 +34,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  *
@@ -110,24 +110,7 @@ public class RofexManager extends Manager {
 
     @Override
     public void fillMarketSecurityListRequestInfo(Message message, SessionID sessionID) throws FieldNotFound, SessionNotFound {
-        System.out.println("tradig status ROFEX --> " + message);
         if (message.getField(new TradSesStatus()).valueEquals(TradSesStatus.OPEN)) {
-
-            List<MarketSecurityListRequestInfo> marketListTemp = marketInfoList.stream().filter(m -> m.getSessionID().equals(sessionID)).collect(Collectors.toList());
-            if (marketListTemp.isEmpty()) {
-                List<MarketSegmentID> marketSegmentIDList = new LinkedList<>();
-                marketSegmentIDList.add(new MarketSegmentID(message.getString(MarketSegmentID.FIELD)));
-                MarketSecurityListRequestInfo marketInfoTest = new MarketSecurityListRequestInfo(sessionID, marketSegmentIDList);
-                marketInfoList.add(marketInfoTest);
-            } else {
-                marketInfoList.stream().filter(m -> m.getSessionID().equals(sessionID)).collect(Collectors.toList()).forEach(m-> {
-                    try {
-                        m.getMarketSegmentID().add(new MarketSegmentID(message.getString(MarketSegmentID.FIELD)));
-                    } catch (FieldNotFound fieldNotFound) {
-                        fieldNotFound.printStackTrace();
-                    }
-                });
-            }
             requestSecurityList(message, sessionID);
         }
     }
@@ -136,18 +119,22 @@ public class RofexManager extends Manager {
     public void requestSecurityList(Message message, SessionID sessionID) throws SessionNotFound, FieldNotFound {
 
         MarketID marketID = new MarketID(message.getString(MarketID.FIELD));
+        //DDA (agro), DDF (Financieros) DUAL (Otros) y MERV (ByMA)
         MarketSegmentID marketSegmentID = new MarketSegmentID(message.getString(MarketSegmentID.FIELD));
-        DateFormat hourdateFormat = new SimpleDateFormat("ddMMyyyyHHmmss");
-        Date date = new Date();
-        String reqId = "SecListReq-INTL-" + hourdateFormat.format(date);
+        System.out.println(marketSegmentID.getValue());
+        if (StringUtils.isNotEmpty(marketSegmentID.getValue()) && !marketSegmentID.valueEquals("MATBA")) {
+            DateFormat hourdateFormat = new SimpleDateFormat("ddMMyyyyHHmmss");
+            Date date = new Date();
+            String reqId = "SecListReq-INTL-" + hourdateFormat.format(date);
 
-        SecurityListRequest securityListRequest = new SecurityListRequest();
-        securityListRequest.setField(new SecurityReqID(reqId));
-        securityListRequest.setField(new SecurityListRequestType(SecurityListType.NEWSPAPER_LIST));//NEWSPAPER_LIST));
-        securityListRequest.setField(marketID);
-        securityListRequest.setField(marketSegmentID);
-        securityListRequest.setField(new SubscriptionRequestType(SubscriptionRequestType.SNAPSHOT_UPDATES));
-        Session.sendToTarget(securityListRequest, sessionID);
+            SecurityListRequest securityListRequest = new SecurityListRequest();
+            securityListRequest.setField(new SecurityReqID(reqId));
+            securityListRequest.setField(new SecurityListRequestType(SecurityListType.NEWSPAPER_LIST));//NEWSPAPER_LIST));
+            securityListRequest.setField(marketID);
+            securityListRequest.setField(marketSegmentID);
+            securityListRequest.setField(new SubscriptionRequestType(SubscriptionRequestType.SNAPSHOT_UPDATES));
+            Session.sendToTarget(securityListRequest, sessionID);
+        }
     }
 
     @Override

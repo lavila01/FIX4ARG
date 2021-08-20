@@ -192,6 +192,7 @@ public abstract class Manager {
             execution.setText(text);
             executionTableModel.addExecution(execution);
         }
+        //System.out.println(response.toString());
         System.out.println(restService.postData(response));
     }
 
