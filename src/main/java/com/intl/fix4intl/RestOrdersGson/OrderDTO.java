@@ -1,7 +1,8 @@
 package com.intl.fix4intl.RestOrdersGson;
 
-import javax.annotation.Generated;
 import com.google.gson.annotations.SerializedName;
+
+import javax.annotation.Generated;
 import java.io.Serializable;
 
 @Generated("com.robohorse.robopojogenerator")
@@ -72,6 +73,9 @@ public class OrderDTO implements Serializable {
 
 	@SerializedName("cantidad_operada")
 	private int cantidadOperada;
+
+	@SerializedName("dias_liquidacion")
+	private String diasLiquidacion;
 
 	@SerializedName("user_id")
 	private int userId;
@@ -268,23 +272,31 @@ public class OrderDTO implements Serializable {
 		return instrumentoMoneda;
 	}
 
-	public void setCantidadOperada(int cantidadOperada){
+	public void setCantidadOperada(int cantidadOperada) {
 		this.cantidadOperada = cantidadOperada;
 	}
 
-	public int getCantidadOperada(){
+	public int getCantidadOperada() {
 		return cantidadOperada;
 	}
 
-	public void setUserId(int userId){
+	public String getDiasLiquidacion() {
+		return diasLiquidacion;
+	}
+
+	public void setDiasLiquidacion(String diasLiquidacion) {
+		this.diasLiquidacion = diasLiquidacion;
+	}
+
+	public void setUserId(int userId) {
 		this.userId = userId;
 	}
 
-	public int getUserId(){
+	public int getUserId() {
 		return userId;
 	}
 
-	public void setResponse(String response){
+	public void setResponse(String response) {
 		this.response = response;
 	}
 

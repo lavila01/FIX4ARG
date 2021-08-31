@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.intl.fix4intl.DBController.QuotationsBymaJpaController;
+import com.intl.fix4intl.DBController.QuotationsJpaController;
 import com.intl.fix4intl.Model.QuotationsByma;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
@@ -43,10 +44,11 @@ public class BymaManager extends Manager {
     private AtomicInteger countHeartBeat = new AtomicInteger(0);
     private static Instrument instrument;
     private static Message message;
+
     public BymaManager(OrderTableModel orderTableModel,
-            ExecutionTableModel executionTableModel,
-            InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations, RestOrderService restService) {
-        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations, restService);
+                       ExecutionTableModel executionTableModel,
+                       InstrumentTableModel instrumentTableModel, OrderObservable orderObservable, ObservableQuotations observableQuotations, RestOrderService restService, QuotationsJpaController con) {
+        super(orderTableModel, executionTableModel, instrumentTableModel, orderObservable, observableQuotations, restService, con);
     }
 
     @Override

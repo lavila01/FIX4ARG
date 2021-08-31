@@ -6,6 +6,7 @@ import com.intl.fix4intl.Observable.LogonObservable;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderObservable;
 import com.intl.fix4intl.RestOrdersGson.OrderDTO;
+import com.intl.fix4intl.RestOrdersGson.ResponseDTO;
 import com.intl.fix4intl.RestOrdersGson.RestOrderService;
 import com.intl.fix4intl.Socket.EchoClient;
 import quickfix.*;
@@ -17,7 +18,10 @@ import javax.swing.*;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -41,20 +45,30 @@ public class App extends MessageCracker implements Application {
     RofexManager rofexManager;
     Manager manager = null;
     SessionSettings settings;
-    
+
     EchoClient client;
     RestOrderService restService;
     OrderTableModel orderTableModel;
+    BlockingQueue<OrderDTO> serviceOrders = new LinkedBlockingQueue<>();
 
-    public App(OrderTableModel orderTableModel,ExecutionTableModel executionTableModel,InstrumentTableModel instrumentTableModel, SessionSettings settings) throws ConfigError {
-        con = new QuotationsJpaController();
+    public App(OrderTableModel orderTableModel, ExecutionTableModel executionTableModel, InstrumentTableModel instrumentTableModel, SessionSettings settings) throws ConfigError, FieldConvertError {
+        if (settings.isSetting("Active")) {
+            int active = settings.getInt("Active");
+            if (active == 1) {
+                con = new QuotationsJpaController();
+                System.out.println("Connection -->" + con.getEntityManager().getProperties().toString());
+            } else {
+                System.out.println("Connection --> Active=0");
+            }
+
+        }
         //service to send orders
         restService = new RestOrderService(settings);
-        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService) ;
-        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService);
+        bymaManager = new BymaManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService, con);
+        rofexManager = new RofexManager(orderTableModel, executionTableModel, instrumentTableModel, this.orderObservable, this.observableQuotations, restService, con);
         this.orderTableModel = orderTableModel;
         this.settings = settings;
-        System.out.println("Connection -->" + con.getEntityManager().getProperties().toString());
+
 
     }
 
@@ -132,27 +146,52 @@ public class App extends MessageCracker implements Application {
 
     private void submitOrder(OrderDTO orderDTO, SessionID sessionId) throws FieldNotFound {
         //System.out.println(orderDTO);
+//        Optional<Instrument> in = manager.getInstruments().stream()
+//                .peek(i->i.getAbreviatura().equalsIgnoreCase(orderDTO.getInstrumento().getAbreviaturaMercadoPorDefault()))
+//                .findAny();
+//        if(in.isPresent()) {
         Order newOrder = new Order();
         newOrder.setAccount(orderDTO.getComitente().getCuentaZeni());
         newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador() == 1 ? OrderSide.BUY : OrderSide.SELL);
         newOrder.setType(OrderType.parse(orderDTO.getTipoPrecio().getCodigoMercado()));
         newOrder.setTIF(OrderTIF.DAY);// fijo!
-        //newOrder.setSetType(OrderSettType.CASH);
-        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoPorDefault());
+        newOrder.setCurrency(new Currency(orderDTO.getInstrumentoMoneda().getMonedaId() == 1 ? "ARS" : "USD"));
+        //System.out.println("Instrument Currency: "+in.get().getCurrency());
+        newOrder.setSymbol(orderDTO.getInstrumento().getAbreviaturaMercadoPorDefault());//.replaceFirst("MERV - XMEV - ",""));
         newOrder.setQuantity(orderDTO.getCantidad());
         newOrder.setOpen(newOrder.getQuantity());
+        //newOrder.sets
         OrderType type = newOrder.getType();
         if (type.equals(OrderType.LIMIT) || type.equals(OrderType.STOP_LIMIT)) {
             newOrder.setLimit(orderDTO.getPrecio());
         }
-//        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
-//            newOrder.setStop(orderDTO.getPrecio());
-//        }
+        if (type == OrderType.STOP || type == OrderType.STOP_LIMIT) {
+            newOrder.setStop(orderDTO.getPrecio());
+        }
         newOrder.setSessionID(sessionId);
         orderTableModel.addOrder(newOrder);
         manager = mercadoEsROFEX(sessionId) ? rofexManager : bymaManager;
         manager.idToOrderDto.put(newOrder.getID(), orderDTO);
         sendOrder(newOrder);
+        // }
+//        else {
+//            ExecutorService executor = Executors.newSingleThreadExecutor();
+//            executor.submit(() -> {
+//                if(!Thread.interrupted()){
+//                    instrumentNotFoundReject(orderDTO);
+//                }
+//            });
+//        }
+    }
+
+    private void instrumentNotFoundReject(OrderDTO orderDTO) {
+        ResponseDTO response = new ResponseDTO();
+        response.setStatus(ResponseDTO.REJECTED);
+        response.setText("Intrument: " + orderDTO.getInstrumento().getAbreviaturaMercadoPorDefault() + " Not Found");
+        response.setOrdenTradingId(orderDTO.getId());
+        restService.postData(response);
+        System.out.println(restService.postData(response));
+
     }
 
     /**
@@ -242,16 +281,20 @@ public class App extends MessageCracker implements Application {
         if (MessageUtils.isHeartbeat(message.toString())) {
             System.out.println("toAdmin --Heaetbeat>" + message);
             //ask for Orders to send
-            try {
-                List<OrderDTO> orderDTOS = restService.getOrdersGson();
-                for (OrderDTO orderDTO: orderDTOS) {
-                    submitOrder(orderDTO, sessionId);
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                if (!Thread.interrupted()) {
+                    try {
+                        serviceOrders.addAll(restService.getOrdersGson());
+                        if (!serviceOrders.isEmpty()) {
+                            submitOrder(serviceOrders.take(), sessionId);
+                        }
+                    } catch (IOException | InterruptedException | FieldNotFound e) {
+                        e.printStackTrace();
+                    }
                 }
-
-            } catch (IOException | FieldNotFound e) {
-                e.printStackTrace();
-            }
-
+            });
+            System.out.println("Count HertBeat -> " + countHeartBeat.incrementAndGet());
         }
 
     }
@@ -287,7 +330,7 @@ public class App extends MessageCracker implements Application {
         try {
             this.manager = mercadoEsBYMA(sessionId) ? this.bymaManager : this.rofexManager;
             fillMarketDataRequest fillMarketDataRequest = new fillMarketDataRequest(this.countHeartBeat.intValue() == 0 ? MDUpdateType.FULL_REFRESH : MDUpdateType.INCREMENTAL_REFRESH, sessionId, this.manager);
-            System.out.println("Count Hear: " + fillMarketDataRequest.dUpdateType);
+            System.out.println("fillMarketDataRequest Type : " + fillMarketDataRequest.dUpdateType);
             fillMarketDataRequest.run();
 
         } catch (Exception e) {
@@ -379,6 +422,9 @@ public class App extends MessageCracker implements Application {
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.EXECUTION_REPORT)) {
                         System.out.println("EXECUTION REPORT --> " + message);
                         this.manager.executionReport(message, sessionID);
+                        //submitOrder
+                        if (!serviceOrders.isEmpty())
+                            submitOrder(serviceOrders.take(), sessionID);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.ORDER_CANCEL_REJECT)) {
                         this.manager.cancelReject(message, sessionID);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.TRADING_SESSION_STATUS)) {
@@ -396,8 +442,9 @@ public class App extends MessageCracker implements Application {
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_SNAPSHOT_FULL_REFRESH)) {
                         //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
                         this.manager.fillCotizaciones((MarketDataSnapshotFullRefresh) message, sessionID);
+                        //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> countHeartBeat "+ countHeartBeat.incrementAndGet());
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_INCREMENTAL_REFRESH)) {
-                        //System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
+                        System.out.println("MARKET_DATA_INCREMENTAL_REFRESH -> " + message);
                         this.manager.fillCotizaciones((MarketDataIncrementalRefresh) message, sessionID);
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.INDICATION_OF_INTEREST)) {
                         System.out.println("INDICATION_OF_INTEREST -> " + message);

@@ -115,10 +115,10 @@ public class InstrumentTableModel extends AbstractTableModel {
     }
 
     public void update(List<Instrument> instruments) {
-        instruments.forEach(instrument -> {
-            allInstruments.remove(instrument);
-            allInstruments.add(instrument);
-        });
+        for (Instrument inst : instruments) {
+            allInstruments.remove(inst);
+            allInstruments.add(inst);
+        }
         fireTableDataChanged();
     }
 }

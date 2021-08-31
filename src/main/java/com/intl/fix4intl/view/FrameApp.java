@@ -53,32 +53,38 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
         if (!f.isFile()) {
             f = new File("config/app.cfg");
         }
+
         InputStream inputStream = new BufferedInputStream(new FileInputStream(f));
         settings = new SessionSettings(inputStream);
         inputStream.close();
         boolean logHeartbeats = Boolean.parseBoolean(System.getProperty("logHeartbeats", "true"));
-        
-        application = new App(orderTableModel, executionTableModel, instrumentTableModel, settings);
-        
+
+        try {
+            application = new App(orderTableModel, executionTableModel, instrumentTableModel, settings);
+        } catch (FieldConvertError fieldConvertError) {
+            fieldConvertError.printStackTrace();
+        }
+
         application.addLogonObservable(this);
         application.addOrderObservable(this);
-        
-        
+
+
         this.setComboValues(orderTableModel, executionTableModel, instrumentTableModel);
         MessageStoreFactory messageStoreFactory = new FileStoreFactory(settings);
         LogFactory logFactory = new ScreenLogFactory(true, true, true, logHeartbeats);
         MessageFactory messageFactory = new DefaultMessageFactory();
-        
-        initiator = new SocketInitiator(application, messageStoreFactory, settings, logFactory,messageFactory);
-        
+        System.out.println(application != null ? "NOT NUL" : "NULL");
+        initiator = new SocketInitiator(application, messageStoreFactory, settings, logFactory, messageFactory);
+        System.out.println(initiator != null ? "NOT NUL INITIATOR" : "NULL INITIATOR");
+        //System.out.println(initiator.);
         ////socketData
-        
-        
+
+
         //new Thread(client);
         //client.
 //        DataSocket socket = new DataSocket(application,5555);
 //        new Thread(socket).start();
-        
+
         //socket.start(5555);
         
     }
@@ -682,11 +688,13 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
     
     public synchronized void logon() {
         if (!initiatorStarted) {
+            System.out.println("initiatorStarted " + "entro");
             try {
                 initiator.start();
                 initiatorStarted = true;
             } catch (Exception e) {
                 log.error("Logon failed", e);
+                e.printStackTrace();
             }
         } else {
             Iterator<SessionID> sessionIds = initiator.getSessions().iterator();

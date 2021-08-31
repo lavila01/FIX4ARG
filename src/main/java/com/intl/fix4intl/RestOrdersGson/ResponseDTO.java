@@ -8,18 +8,21 @@ import java.io.Serializable;
 @Generated("com.robohorse.robopojogenerator")
 public class ResponseDTO implements Serializable {
 
-	public static final String NEW = "APR";
-	public static final String REJECTED = "APR";
-	public static final String CANCELED = "APR";
+    //	new = APR
+//  rejected = REC
+//	cancelled = CAN
+    public static final String NEW = "APR";
+    public static final String REJECTED = "REC";
+    public static final String CANCELED = "CAN";
 
-	@SerializedName("orden_trading_id")
-	private int ordenTradingId;
+    @SerializedName("orden_trading_id")
+    private int ordenTradingId;
 
-	@SerializedName("ClOrdID")
-	private long clOrdID;
+    @SerializedName("ClOrdID")
+    private long clOrdID;
 
-	@SerializedName("OrderID")
-	private String orderID;
+    @SerializedName("OrderID")
+    private String orderID;
 
 	@SerializedName("Text")
 	private String text;

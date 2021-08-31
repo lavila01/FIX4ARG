@@ -5,6 +5,7 @@
  */
 package com.intl.fix4intl;
 
+import com.intl.fix4intl.DBController.QuotationsJpaController;
 import com.intl.fix4intl.Observable.ObservableQuotations;
 import com.intl.fix4intl.Observable.OrderEvent;
 import com.intl.fix4intl.Observable.OrderObservable;
@@ -24,6 +25,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  *
@@ -47,18 +50,20 @@ public abstract class Manager {
     protected final HashMap<String, OrderDTO> idToOrderDto = new HashMap<>();
     // Service
     private RestOrderService restService;
+    QuotationsJpaController con;
 
     public Manager(OrderTableModel orderTableModel, ExecutionTableModel executionTableModel, InstrumentTableModel instrumentTableModel,
                    OrderObservable orderObservable,
-                   ObservableQuotations observableQuotations, RestOrderService restService) {
+                   ObservableQuotations observableQuotations, RestOrderService restService, QuotationsJpaController con) {
         this.executionTableModel = executionTableModel;
         this.orderTableModel = orderTableModel;
         this.instrumentTableModel = instrumentTableModel;
         this.orderObservable = orderObservable;
         this.observableQuotations = observableQuotations;
         this.restService = restService;
+        this.con = con;
         fillValuesMap();
-        
+
     }
 
     public abstract List<Instrument> getInstruments();
@@ -188,12 +193,18 @@ public abstract class Manager {
 
             Side side = (Side) message.getField(new Side());
             execution.setSide(FIXSideToSide(side));
-            String text=message.isSetField(new Text())?message.getField(new Text()).getValue():"";
+            String text = message.isSetField(new Text()) ? message.getField(new Text()).getValue() : "";
             execution.setText(text);
             executionTableModel.addExecution(execution);
         }
-        //System.out.println(response.toString());
-        System.out.println(restService.postData(response));
+        System.out.println(response.toString());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.submit(() -> {
+            if (!Thread.interrupted()) {
+                System.out.println(restService.postData(response));
+            }
+        });
+
     }
 
     public void cancelReject(Message message, SessionID sessionID) throws FieldNotFound {
@@ -243,6 +254,11 @@ public abstract class Manager {
         noRelatedSym.set(new Symbol(instrument.getAbreviatura()));
 
         noRelatedSym.set(new SettlType(SettlType.CASH));
+        noRelatedSym.set(new SettlType(SettlType.NEXT_DAY));
+        noRelatedSym.set(new SettlType(SettlType.T_2));
+        noRelatedSym.set(new SettlType(SettlType.T_3));
+        noRelatedSym.set(new SettlType(SettlType.T_4));
+        noRelatedSym.set(new SettlType(SettlType.FUTURE));
 
         if (instrument.getSecurityType() != null && !instrument.getSecurityType().equals("")) {
             noRelatedSym.set(new SecurityType(instrument.getSecurityType()));
@@ -327,7 +343,9 @@ public abstract class Manager {
     public void send(quickfix.Message message, SessionID sessionID) {
         try {
             System.out.println("SEND ORDER --> " + message);
+
             Session.sendToTarget(message, sessionID);
+            //System.exit(0);
         } catch (SessionNotFound e) {
             System.out.println(e);
         }
