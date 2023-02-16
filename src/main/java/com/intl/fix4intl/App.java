@@ -152,7 +152,7 @@ public class App extends MessageCracker implements Application {
 //        if(in.isPresent()) {
         Order newOrder = new Order();
         newOrder.setAccount(orderDTO.getComitente().getCuentaZeni());
-        newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador() == 1 ? OrderSide.BUY : OrderSide.SELL);
+        newOrder.setSide(orderDTO.getTipoOperacion().getMultiplicador() == 1 ? OrderSide.SELL : OrderSide.BUY);
         newOrder.setType(OrderType.parse(orderDTO.getTipoPrecio().getCodigoMercado()));
         newOrder.setTIF(OrderTIF.DAY);// fijo!
         newOrder.setCurrency(new Currency(orderDTO.getInstrumentoMoneda().getMonedaId() == 1 ? "ARS" : "USD"));
