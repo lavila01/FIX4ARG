@@ -57,7 +57,7 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
         InputStream inputStream = new BufferedInputStream(new FileInputStream(f));
         settings = new SessionSettings(inputStream);
         inputStream.close();
-        boolean logHeartbeats = Boolean.parseBoolean(System.getProperty("logHeartbeats", "true"));
+        boolean logHeartbeats = Boolean.parseBoolean(System.getProperty("logHeartbeats", "false"));
 
         try {
             application = new App(orderTableModel, executionTableModel, instrumentTableModel, settings);
@@ -71,7 +71,18 @@ public class FrameApp extends javax.swing.JFrame implements PropertyChangeListen
 
         this.setComboValues(orderTableModel, executionTableModel, instrumentTableModel);
         MessageStoreFactory messageStoreFactory = new FileStoreFactory(settings);
-        LogFactory logFactory = new ScreenLogFactory(true, true, true, logHeartbeats);
+        boolean ScreenLogEvents = false;
+        boolean ScreenLogShowIncoming = false;
+        boolean ScreenLogShowOutgoing = false;
+        try {
+            ScreenLogShowIncoming = settings.getBool("ScreenLogShowIncoming");
+            ScreenLogShowOutgoing = settings.getBool("ScreenLogShowOutgoing");
+            ScreenLogEvents = settings.getBool("ScreenLogEvents");
+
+        } catch (Exception ex) {
+        }
+
+        LogFactory logFactory = new ScreenLogFactory(ScreenLogShowIncoming, ScreenLogShowOutgoing, ScreenLogEvents, logHeartbeats);
         MessageFactory messageFactory = new DefaultMessageFactory();
         System.out.println(application != null ? "NOT NUL" : "NULL");
         initiator = new SocketInitiator(application, messageStoreFactory, settings, logFactory, messageFactory);

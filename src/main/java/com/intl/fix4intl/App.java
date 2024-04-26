@@ -290,6 +290,7 @@ public class App extends MessageCracker implements Application {
                             submitOrder(serviceOrders.take(), sessionId);
                         }
                     } catch (IOException | InterruptedException | FieldNotFound e) {
+                        System.out.println("ERROR: " + e.getMessage());
                         e.printStackTrace();
                     }
                 }

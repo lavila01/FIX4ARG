@@ -62,13 +62,14 @@ public class RofexManager extends Manager {
                 new TransactTime(), typeToFIXType(order.getType()));
         newOrderSingle.setField(order.getCurrency());
         newOrderSingle.setField(new Account(order.getAccount()));
-        newOrderSingle.setField(setTypeToFIXSetType(order.getSetType()));
+        // Error - 1D al final de Symbol
+//        newOrderSingle.setField(setTypeToFIXSetType(order.getSetType()));
         newOrderSingle.setField(new SecurityExchange(order.getSessionID().getTargetCompID()));
         newOrderSingle.set(new OrderQty(order.getQuantity()));
         newOrderSingle.set(new Symbol(order.getSymbol()));
         newOrderSingle.getHeader().setField(new StringField(DeliverToCompID.FIELD, order.getSessionID().getTargetCompID()));
         newOrderSingle.setField(new SecurityExchange(order.getSessionID().getTargetCompID()));
-        newOrderSingle.set(new SettlType(idToOrderDto.get(order.getID()).getDiasLiquidacion()));
+        // newOrderSingle.set(new SettlType(idToOrderDto.get(order.getID()).getDiasLiquidacion()));
         // newOrderSingle.setField(new ExpireDate("20191210"));//
         //NewOrderSingle.NoPartyIDs noPartyIDs = new NewOrderSingle.NoPartyIDs();
         //noPartyIDs.setField(new PartyIDSource(PartyIDSource.PROPRIETARY_CUSTOM_CODE));

@@ -41,9 +41,11 @@ public class RestOrderService {
                     data.append(s);
                 }
             } catch (IOException ex) {
+                System.out.println("ERROR: " + ex.getMessage());
                 ex.printStackTrace();
             }
         }catch (IOException | ConfigError ex){
+            System.out.println("ERROR: " + ex.getMessage());
             ex.printStackTrace();
         }
     return data;
@@ -70,7 +72,7 @@ public class RestOrderService {
                 while ((responseLine = br.readLine()) != null) {
                     response.append(responseLine.trim());
                 }
-                System.out.println(response.toString());
+                System.out.println(response);
             }
         }catch (IOException | ConfigError ex){
             ex.printStackTrace();
