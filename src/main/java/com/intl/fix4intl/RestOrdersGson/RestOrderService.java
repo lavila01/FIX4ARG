@@ -33,7 +33,7 @@ public class RestOrderService {
 
             HttpURLConnection con = (HttpURLConnection) ((new URL(PRODUCT_URL.concat(settings.getString("Wfsystems-get"))).openConnection()));
             con.setRequestMethod("GET");
-
+            con.addRequestProperty("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
             con.setDoInput(true);
             String s;
             try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
@@ -58,6 +58,7 @@ public class RestOrderService {
             con.setRequestMethod("POST");
             con.setRequestProperty("Content-Type", "application/json; utf-8");
             con.setRequestProperty("Accept", "application/json");
+            con.addRequestProperty("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
             con.setDoOutput(true);
 
             String cursado = new Gson().toJson(responseDTO);
