@@ -439,7 +439,9 @@ public class App extends MessageCracker implements Application {
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.SECURITY_LIST)) {
                         //System.out.println("SECURITY_LIST -> " + message);
                         this.manager.fillInstrumentList(message, sessionID);
-                        starQuotes = true;
+                        if (settings.getBool("MarketRequestQuotations")) {
+                            starQuotes = true;
+                        }
                     } else if (message.getHeader().getField(msgType).valueEquals(MsgType.MARKET_DATA_SNAPSHOT_FULL_REFRESH)) {
                         //System.out.println("MARKET_DATA_SNAPSHOT_FULL_REFRESH -> " + message);
                         this.manager.fillCotizaciones((MarketDataSnapshotFullRefresh) message, sessionID);
@@ -466,9 +468,9 @@ public class App extends MessageCracker implements Application {
                     this.manager.sendBusinessReject(message, BusinessRejectReason.APPLICATION_NOT_AVAILABLE,
                             "Application not available");
                 }
-            } catch (FieldNotFound | SessionNotFound e) {
+            } catch (FieldNotFound | SessionNotFound | ConfigError | FieldConvertError | InterruptedException |
+                     InvocationTargetException e) {
                 System.out.println(e);
-            } catch (InterruptedException | InvocationTargetException ex) {
             }
 
         }
